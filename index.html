@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="styles.css" />
+    <meta charset="utf-8">
+
+  </head>
+  <body>
+    <table>
+      <tr><td valign="top" width="50%">
+	  <p>Click "Open" to create a connection to the server, 
+	    "Send" to send a message to the server and "Close" to close the connection. 
+	    You can change the message and send multiple times.
+	  <p>
+	    <form>
+	      <button id="open">Open</button>
+	      <button id="close">Close</button>
+	      <p><input id="input" type="text" value="Hello world!">
+		<button id="send">Send</button>
+	    </form>
+
+	    <h1 style="text-align: center;">Paint on Canvas</h1>
+	    <!-- Color Palette -->
+	    <div id="colorPalette">
+	      <button class="colorButton" style="background-color: black;" onclick="setColor('black')"></button>
+	      <button class="colorButton" style="background-color: red;" onclick="setColor('red')"></button>
+	      <button class="colorButton" style="background-color: green;" onclick="setColor('green')"></button>
+	      <button class="colorButton" style="background-color: blue;" onclick="setColor('blue')"></button>
+	      <button class="colorButton" style="background-color: yellow;" onclick="setColor('yellow')"></button>
+	      <button class="colorButton" style="background-color: purple;" onclick="setColor('purple')"></button>
+	      <button class="colorButton" style="background-color: orange;" onclick="setColor('orange')"></button>
+	      <button class="colorButton" style="background-color: pink;" onclick="setColor('pink')"></button>
+	      <button class="colorButton" style="background-color: brown;" onclick="setColor('brown')"></button>
+	      <button class="colorButton" style="background-color: gray;" onclick="setColor('gray')"></button>
+	    </div>
+
+	    <div>
+	      <button id="captureimg"> Capture </button>
+	      <button id="sendcanvas"> Send Canvas </button>
+	      <!-- Slider element -->
+	      <input type="range" id="slider" min="1" max="30" value="10">
+	      <!-- Display the value -->
+	      <span id="sliderValue">10</span>
+
+	    </div>
+
+	    <div>
+	      <button id="switch_to_camera"> Switch To Camera </button>
+	      <input type="file" name="file[]" id="choose_file_to_play"
+		     class="file_multi_video"
+		     accept="video/*">
+	    </div>
+
+
+	    
+	    <span> Prediction : <div id="prediction_result"></div> </span>
+
+	    
+	    <div class='parent' style="display: flex; justify-content: space-between; align-items: center;">
+	      <video id="webcam" class = "float-left-child"> Here should be a webcam stream </video>
+	      <canvas id="paintCanvas"  class = "float-left-child" width="800" height="600"></canvas>
+	    </div>
+	    
+	</td><td valign="top" width="50%">
+	  <div id="output" style="max-height: 70vh;overflow-y: scroll;"></div>
+    </td></tr></table>
+    <script src = 'index.js'></script>
+  </body>
+</html>
