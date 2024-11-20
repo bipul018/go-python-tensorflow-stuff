@@ -20,112 +20,100 @@ import(
 	"strconv"
 
 	"github.com/gorilla/websocket"
-	//"github.com/pytorch/go-torch"
-	// torch "github.com/wangkuiyi/gotorch"
-	
-	// "github.com/wangkuiyi/gotorch/vision/models"
-	//"github.com/pytorch/go-torch/torchvision"
 )
 
+var log_inx = 0
+func my_logf(format string, args ...interface{}) {
+	fmt.Printf("LOG GO %5d::", log_inx)
+	fmt.Printf(format, args...)
+	fmt.Printf("\n")
+	log_inx++
+}
 
+var err_inx = 0
+func my_errf(format string, args ...interface{}) {
+	fmt.Printf("ERR GO %5d::", err_inx)
+	fmt.Printf(format, args...)
+	fmt.Printf("\n")
+	err_inx++
+}
 
-// func loadModel(modelFn string) *models.MLPModule {
-// 	f, e := os.Open(modelFn)
-// 	if e != nil {
-// 		log.Fatal(e)
-// 	}
-// 	defer f.Close()
+func dup_tcp_write(conn net.Conn, slice [] byte) (int, error){
+	n, err := conn.Write(slice)
+	if err != nil {
+		return n, err
+	}
+	if n != len(slice){
+		my_errf("Incomplete writing of slice on connection, tried to write %d, wrote %d",
+			len(slice), n)
+	}
+	
+	return n, nil	
+}
 
-// 	states := make(map[string]torch.Tensor)
-// 	if e := gob.NewDecoder(f).Decode(&states); e != nil {
-// 		log.Fatal(e)
-// 	}
-
-// 	net := models.MLP()
-// 	net.SetStateDict(states)
-// 	return net
-// }
+func read_all(conn net.Conn, slice [] byte) (int,error){
+	read_bytes := 0
+	for read_bytes < len(slice) {
+		rb, err := tcp_conn.Read(slice[read_bytes:])
+		if err != nil {
+			return read_bytes, err
+		}
+		read_bytes += rb
+	}
+	return read_bytes, nil
+}
 
 var tcp_conn net.Conn
-
+// TODO:: Write/Read can just not do full transaction maybe ??
 func predict_class(img [] byte, width uint64, height uint64) string{
-	// Connect to a socket on 127.0.0.1:42042, send and receive data
-	//conn, err := net.Dial("tcp", "localhost:42042")
-	//
-	//if err != nil {
-	//fmt.Println(err)
-	//return "Error"
-	//}
-
-
 	// Send some data to the server
 	b := make([]byte, 8)
 	binary.LittleEndian.PutUint64(b, uint64(width))
-	_, err := tcp_conn.Write(b)
+	_, err := dup_tcp_write(tcp_conn, b)
 	if err != nil {
-		fmt.Println(err)
+		my_errf("", err)
 		return "Error"
 	}
 	binary.LittleEndian.PutUint64(b, uint64(height))
-	_, err = tcp_conn.Write(b)
+	_, err = dup_tcp_write(tcp_conn, b)
 	if err != nil {
-		fmt.Println(err)
+		my_errf("", err)
 		return "Error"
 	}
 
-	log.Printf("Writing bytes of size : %d\n", len(img))
-	_, err = tcp_conn.Write(img)
+	//my_logf("Writing bytes of size : %d\n", len(img))
+	_, err = dup_tcp_write(tcp_conn, img)
 	if err != nil {
-		fmt.Println(err)
+		my_errf("", err)
 		return "Error"
 	}
 
 	// Read incoming data
-	_, err = tcp_conn.Read(b)
+	_, err = read_all(tcp_conn, b)
 	if err != nil {
-		fmt.Println(err)
+		my_errf("", err)
 		return "Error"
 	}
 	dalen := binary.LittleEndian.Uint64(b)
 
-	//log.Printf("Hello, going to make slice of %d\n", dalen)
+	//my_logf("Hello, going to make slice of %d\n", dalen)
 	
 	ans := make([]byte, dalen)
-	_, err = tcp_conn.Read(ans)
+	_, err = read_all(tcp_conn, ans)
 	if err != nil {
-		fmt.Println(err)
+		my_errf("", err)
 		return "Error"
 	}
-	//conn.Close()
+
+	my_logf("Reading image from python of size : %d\n", len(img))
+	read_bytes, err := read_all(tcp_conn, img)
+	if err != nil {
+		my_errf("", err)
+		return "Error"
+	}
+	my_logf("Read image from python of size : %d\n", read_bytes)	
+	
 	return string(ans)
-	
-	
-	//	// This forwards data to a python process and gets the result
-	//	
-	//	model := loadModel("GharudxD-Chess-object-detection.pt")
-	//	//defer model.Close()
-	//
-	//	// Define the transformations for the input images
-	//	// transforms := torchvision.Transforms{
-	//	// 	torchvision.ToTensor(),
-	//	// 	//torchvision.Normalize([]float32{0.5, 0.5, 0.5}, []float32{0.5, 0.5, 0.5}),
-	//	// }
-	//
-	//	//input := transforms.Apply(img)
-	//	input := torch.FromBlob(unsafe.Pointer(&img[0]), torch.Byte, []int64{width,height,4})
-	//
-	//	// Perform inference with the model
-	//	output := model.Forward(input)
-	//
-	//	// Get the predicted class
-	//	//_, predictedClass := torch.Max(output, 1)
-	//	predictedClass := output.Argmax();
-	//
-	//	// Map the class index to the class name
-	//	classNames := []string{"Bishop", "King", "Queen", "Knight"}
-	//	className := classNames[predictedClass.Item().(int64)]
-	//
-	//	return className;
 }
 
 var(web_addr, web_port string)
@@ -135,22 +123,22 @@ var upgrader = websocket.Upgrader{} // use default options
 func echo(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Print("upgrade:", err)
+		my_errf("upgrade:", err)
 		return
 	}
 	defer c.Close()
 	for {
 		mt, message, err := c.ReadMessage()
 		if err != nil {
-			log.Println("read:", err)
+			my_logf("read:", err)
 			break
 		}
 		if mt == websocket.TextMessage {
-			log.Printf("recv text : %s" , message)
+			my_logf("recv text : %s" , message)
 
 			err = c.WriteMessage(mt, message)
 			if err != nil {
-				log.Println("write:", err)
+				my_logf("write:", err)
 				break
 			}
 		} else {
@@ -159,15 +147,15 @@ func echo(w http.ResponseWriter, r *http.Request) {
 			width := binary.LittleEndian.Uint64(message[0:8])
 			height := binary.LittleEndian.Uint64(message[8:16])
 			bytes := binary.LittleEndian.Uint64(message[16:24])
-			//log.Printf("recv image : width=%d, height=%d, bytes=%d", width, height, bytes);
+			//my_logf("recv image : width=%d, height=%d, bytes=%d", width, height, bytes);
 
 			img := message[24:(24+bytes)];
-			log.Printf("Going to predict %d\n", len(img))
+			//my_logf("Going to predict %d\n", len(img))
 			className := predict_class(img, width, height)
-			log.Println("prediction:", className)
+			my_logf("prediction: %s", className)
 			err = c.WriteMessage(websocket.TextMessage, []byte(className))
 			if err != nil {
-				log.Println("write:", err)
+				my_errf("write:", err)
 				break
 			}
 			// Later maybe modify and relpy also the data
@@ -175,9 +163,22 @@ func echo(w http.ResponseWriter, r *http.Request) {
 			//img[i*4+0] = 0 // byte(float32(img[i*4+0]) * 1.5);
 			//img[i*4+3] = 255
 			//}
+
+			// Replaying data
+			err = c.WriteMessage(mt, message)
+			if err != nil {
+				my_errf("write:", err)
+				break
+			}
 		}
 
 	}
+}
+
+
+func home_css(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/css")
+	jsTemplate.Execute(w, "")
 }
 
 
@@ -206,10 +207,7 @@ func main() {
 
 	// Get the port number that was assigned
 	port := ln.Addr().(*net.TCPAddr).Port
-	fmt.Printf("Server for python started on port %d\n", port)
-
-	exec.Command("echo", os.Getenv("PATH"))
-	
+	my_logf("Server for python started on port %d\n", port)
 
 	var python_path string
 	{
@@ -255,7 +253,7 @@ func main() {
 	// defer conn.Close()
 	// conn, err := net.Dial("tcp", "localhost:"+python_port)
 	// if err != nil {
-	// 	fmt.Println(err)
+	// 	my_errf("", err)
 	// 	return
 	// }
 	tcp_conn = conn
@@ -265,8 +263,9 @@ func main() {
 
 	http.HandleFunc("/echo", echo)
 	http.HandleFunc("/index.js", home_js)
+	http.HandleFunc("/styles.css", home_css)
 	http.HandleFunc("/", home_html)
-	log.Println("Starting server...")
+	my_logf("Starting server...")
 
 	// Setting up signal capturing
 	stop := make(chan os.Signal, 1)
@@ -277,7 +276,7 @@ func main() {
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			// handle err
-			log.Println("Error: ", err)
+			my_errf("", err)
 			stop <- syscall.SIGINT
 		}
 	}()
@@ -290,7 +289,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
-		log.Println("Error: ", err)
+		my_errf("", err)
 	}
 	//log.Fatal(http.ListenAndServe(web_addr+":"+web_port, nil))
 	
@@ -301,10 +300,11 @@ func main() {
 	}
 
 	// 6. Exit the Go process
-	fmt.Println("Terminating Python process and exiting Go process")
+	my_logf("Terminating Python process and exiting Go process")
 }
 
 
 var htmlTemplate = template.Must(template.ParseFiles("index.html"))
 //var jsTemplate = template.Must(template.ParseFiles("index.js"))
 var jsTemplate = txt_template.Must(txt_template.ParseFiles("index.js"))
+var cssTemplate = txt_template.Must(txt_template.ParseFiles("styles.css"))

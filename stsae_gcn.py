@@ -904,6 +904,7 @@ def entry_point(in_channels = 3, hidden_channels= 64, num_classes= NUM_CLASSES, 
 
 #entry_point()
 
+import logpy
 
 
 # Load Images from a video file here
@@ -924,8 +925,10 @@ if checkpoint_path and os.path.exists(checkpoint_path):
         model, optimizer, checkpoint_path
     )
 
-if not(model is None):
-    print(f"Found the model trained upto epoch {start_epoch}")
+if model is None:
+    logpy.err(f"Did not find any model to load from checkpoint")
+else:
+    logpy.log(f"Found the model trained upto epoch {start_epoch}")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = model.to(device)
@@ -954,16 +957,13 @@ class FrameSampler():
     def update(self, landmarks):
         self.tensor = self.tensor.roll(shifts = -1, dims = 0)
         # make landmarks reshape reshuffle
-        #tmp = landmarks.permute((1,0))
+        # tmp = landmarks.permute((1,0))
         self.tensor[-1] = landmarks
         #self.tensor[-1] = tmp
         
         with torch.no_grad():
             inputs = self.tensor.permute((2,0,1)).unsqueeze(0)
-            #print(f"From sampler: dimension size of og landmarks : ", self.tensor.shape)
-            #print(f"From sampler: dimension size of input landmarks : ", inputs.shape)
             outputs = model(inputs)
-            #print(f"From sampler: dimension size of output : ", outputs.shape)
             maxval,predictions = torch.max(outputs, 1)
             pose_name = subset_of_poses[predictions]
             self.last_pred = pose_name
@@ -991,34 +991,41 @@ options = PoseLandmarkerOptions(
 # STEP 2: Create an PoseLandmarker object.
 detector = PoseLandmarker.create_from_options(options)
 
+def unnormalize(pt, wid, hei):
+    x = pt[0] * wid
+    y = pt[1] * hei
+    # x = (x + 1) * 0.5 * wid
+    # y = (y + 1) * 0.5 * hei
+    if (x >= 0) and (y >= 0) and (x < wid) and (y < hei):
+        return (int(x) , int(y))
+    return None
+
 def run_on_image(rgb_image):
     if len(rgb_image.shape) == 4:
         rgb_image = rgb_image[0]
     rgb_image = np.ascontiguousarray(rgb_image)
-    #print("Image type and shape : ", type(rgb_image), rgb_image.dtype, rgb_image.shape)
-    #rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_XYZ2RGB)
-    rgb_image = mpipe.Image(image_format=mpipe.ImageFormat.SRGB, data=rgb_image)
-    #with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
-
-    #results = pose.process(rgb_image)
-    results = detector.detect(rgb_image)
-    # TODO:: Later optimize all these by setting up this in outer code directly
-    
-    # Draw landmarks on the original frame
-    #print(dir(results))
-    #print(dir(results.pose_landmarks))
-    #print("Landmarks length : \n", len(results.pose_landmarks))
-    #print("Landmarks[0] length : \n", len(results.pose_landmarks[0]))
+    bgr_image = mpipe.Image(image_format=mpipe.ImageFormat.SRGB, data=rgb_image)
+    results = detector.detect(bgr_image)
     if results.pose_landmarks:
         pts = []
         for pt in results.pose_landmarks[0]:
             pts.append([pt.x, pt.y, pt.z])
         pts = torch.tensor(pts)
+
+        # loop over all the landmark indices pairs and draw lines
+        for pair in mpipe.solutions.pose.POSE_CONNECTIONS:
+            pt1 = unnormalize(pts[pair[0]], rgb_image.shape[1], rgb_image.shape[0])
+            pt2 = unnormalize(pts[pair[1]], rgb_image.shape[1], rgb_image.shape[0])
+            if (pt1 is not None) and (pt2 is not None):
+                cv2.line(rgb_image, pt1, pt2, (0, 0, 255), thickness=1)
+
             
         pred_name, pred_prob = sampler.update(pts)
-        return f"{sampler.last_pred} : {sampler.last_prob}"
-        
-    raise f"Mediapipe couldnot be started"
+        rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2RGBA)
+        # logpy.log(f"The result image is of type {type(rgb_image)} and data type of {rgb_image.dtype}")
+        return f"{sampler.last_pred} : {sampler.last_prob}", rgb_image
+    return f"No Detection, previously:{sampler.last_pred} : {sampler.last_prob}", None
+    
 
 
         

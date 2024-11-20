@@ -1,7 +1,3 @@
-
-
-
-
 var scheduler_obj = null;
 var scheduler_fps = 10;
 document.getElementById('sliderValue').textContent = ''+scheduler_fps;
@@ -11,7 +7,38 @@ var canvas = document.getElementById('paintCanvas');
 var ctx = canvas.getContext('2d');
 
 var video = document.getElementById('webcam');
-const vid_dims = {width: 320, height:null};
+const vid_dims = {width: 500, height:null};
+
+const frame_collection = {
+    frames: [],
+    collecting: false
+};
+var slider_frame_count = 0
+function update_frame_slider(){
+    var val = document.getElementById('num_frames_slider').value;
+    document.getElementById('num_frames').textContent = ''+val;
+    slider_frame_count = val;
+}
+update_frame_slider();
+document.getElementById('num_frames_slider').
+    addEventListener('input', (evt) => update_frame_slider());
+
+document.getElementById('start-collect').
+    addEventListener('click', (evt) => {
+	frame_collection.frames = [];
+	frame_collection.collecting = true;
+	document.getElementById("collecting-or-not").textContent = 'Collecting';
+    });
+
+document.getElementById('stop-collect').
+    addEventListener('click', (evt) => {
+	frame_collection.collecting = false;
+	document.getElementById("collecting-or-not").textContent = 'Not Collecting';
+    });
+
+
+
+
 
 window.addEventListener("load", function(evt) {
 
@@ -19,6 +46,7 @@ window.addEventListener("load", function(evt) {
     var input = document.getElementById("input");
     var ws;
 
+    
     var print = function(message) {
         var d = document.createElement("div");
         d.textContent = message;
@@ -26,6 +54,8 @@ window.addEventListener("load", function(evt) {
         output.scroll(0, output.scrollHeight);
     };
 
+
+    
     document.getElementById("open").onclick = function(evt) {
         if (ws) {
 	    return false;
@@ -86,6 +116,34 @@ window.addEventListener("load", function(evt) {
         ws.send(input.value);
         return false;
     };
+    document.getElementById('send-collect').
+	addEventListener('click', (evt) => {
+	    const N = frame_collection.frames.length
+	    const M = slider_frame_count;
+	    
+	    const arr = [];
+	    for(var i = 0; i < M; ++i){
+		const j = Math.floor(i * N / M + (N-M)/M);
+		arr.push(frame_collection.frames[j]);
+	    }
+	    frame_collection.collecting = false;
+	    
+	    // Send the frames
+	    if (!ws) {
+		return false;
+            }
+	    
+	    arr.forEach((imgdata) => {
+		const sizeinput = new BigUint64Array([BigInt(imgdata.width),
+						      BigInt(imgdata.height),
+						      BigInt(imgdata.data.buffer.byteLength)]);
+		print("SEND: " + sizeinput);
+		//ws.send(sizeinput);
+		//ws.send(imgdata.data);
+		ws.send(concatenate(sizeinput, imgdata.data));
+	    });
+	    
+	});
 
 
 
@@ -136,6 +194,7 @@ window.addEventListener("load", function(evt) {
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
 	.then((stream) => {
 	    video.controls = true;
+	    video.loop = true;
 	    video.srcObject = stream;
 	    video.play();
 	    const streaming = [false];
@@ -181,6 +240,7 @@ window.addEventListener("load", function(evt) {
 		    //switch_camera();
 		    streaming[0] = false;
 		    console.log("There was a file at " + url);
+		    canvas_click_fn();
 		};
 		reader.readAsArrayBuffer(file);
 
@@ -193,7 +253,13 @@ window.addEventListener("load", function(evt) {
 		if(scheduler_obj === null){
 		    scheduler_obj = setInterval(() => {
 			ctx.drawImage(video, 0, 0, vid_dims.width, vid_dims.height);
-			send_canvas();
+			if(frame_collection.collecting){
+			    frame_collection.frames.
+				push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+			}
+			else{
+			    send_canvas();
+			}
 		    }, 1000/scheduler_fps);
 		}
 		else{
@@ -246,7 +312,9 @@ window.addEventListener("load", function(evt) {
 			// TODO:: Add whole stream pause/play also
 			canvas.addEventListener('click', canvas_click_fn);
 			document.getElementById('slider').addEventListener('input', slider_input_fn);
-			canvas_click_fn();
+			if(scheduler_obj === null){
+			    canvas_click_fn();
+			}
 		    }
 		},
 		false,
