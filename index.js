@@ -20,21 +20,9 @@ function update_frame_slider(){
     slider_frame_count = val;
 }
 update_frame_slider();
+
 document.getElementById('num_frames_slider').
     addEventListener('input', (evt) => update_frame_slider());
-
-document.getElementById('start-collect').
-    addEventListener('click', (evt) => {
-	frame_collection.frames = [];
-	frame_collection.collecting = true;
-	document.getElementById("collecting-or-not").textContent = 'Collecting';
-    });
-
-document.getElementById('stop-collect').
-    addEventListener('click', (evt) => {
-	frame_collection.collecting = false;
-	document.getElementById("collecting-or-not").textContent = 'Not Collecting';
-    });
 
 
 
@@ -186,10 +174,6 @@ window.addEventListener("load", function(evt) {
     document.getElementById("sendcanvas").onclick = (evt) => {send_canvas();}
 
 
-
-
-
-
     // Start webcam stream
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
 	.then((stream) => {
@@ -200,6 +184,7 @@ window.addEventListener("load", function(evt) {
 	    const streaming = [false];
 	    const playvideo = [false];
 
+	    
 	    // Make all the event listeners functions, so that they can be added and removed
 	    const video_click_fn = (evt) => {
 		if(playvideo[0]){
@@ -278,6 +263,34 @@ window.addEventListener("load", function(evt) {
 	    };
 	    
 
+	    // Accumulation of frames portion
+	    document.getElementById('start-collect').
+		addEventListener('click', (evt) => {
+		    frame_collection.frames = [];
+		    frame_collection.collecting = true;
+		    document.getElementById("collecting-or-not").textContent = 'Collecting';
+		    // Should also start video capture callback itself
+		    if(!playvideo[0]){
+			video.play();
+			playvideo[0] = !playvideo[0];
+		    }
+		    if(scheduler_obj === null){
+			canvas_click_fn();
+		    }
+		});
+
+	    document.getElementById('stop-collect').
+		addEventListener('click', (evt) => {
+		    frame_collection.collecting = false;
+		    document.getElementById("collecting-or-not").textContent = 'Not Collecting';
+		    // Should also stop video capture callback itself
+
+		    if(scheduler_obj !== null){
+			canvas_click_fn();
+		    }
+		});
+
+	    
 
 	    video.addEventListener(
 		"canplay",
