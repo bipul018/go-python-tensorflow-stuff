@@ -32,6 +32,11 @@ def resolve_name(pred):
         return class_names[0]
     else:
         return class_names[1]
+
+# pytorch stuff
+
+import stsae_gcn
+
     
 def get_img_prediction(rgba_data, width, height):
     # Convert RGBA byte array to numpy array and reshape it (assuming 4 channels for RGBA)
@@ -40,19 +45,20 @@ def get_img_prediction(rgba_data, width, height):
     rgb_array = rgba_array[:, :, :, :3]
 
     # Normalize the RGB values to the range [0, 1]
-    rgb_normalized = rgb_array.astype(numpy.float32) / 255.0
+    # rgb_normalized = rgb_array.astype(numpy.float32) / 255.0
 
     # Now you have an RGB image as a normalized float32 array
     # You can pass this to TensorFlow
-    input_tensor = tflow.convert_to_tensor(rgb_normalized)
+    #input_tensor = tflow.convert_to_tensor(rgb_normalized)
 
     # Check the shape and type of the tensor
-    print(input_tensor.shape, input_tensor.dtype)
+    #print(input_tensor.shape, input_tensor.dtype)
 
     # Use TensorFlow's image resizing function
-    resized_tensor = tflow.image.resize(input_tensor, [TGT_IMG_SIZE[1], TGT_IMG_SIZE[0]])
-    print(resized_tensor.shape, resized_tensor.dtype)
-    return resolve_name(model.predict(resized_tensor))
+    #resized_tensor = tflow.image.resize(input_tensor, [TGT_IMG_SIZE[1], TGT_IMG_SIZE[0]])
+    #print(resized_tensor.shape, resized_tensor.dtype)
+    #return resolve_name(model.predict(resized_tensor))
+    return stsae_gcn.run_on_image(rgb_array)
 
 
 HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
@@ -89,14 +95,14 @@ with conn:
         wid = int.from_bytes(wid, byteorder='little', signed=False)
         hei = int.from_bytes(hei, byteorder='little', signed=False)
         tots = wid * hei * 4
-        print(f"Wid = {wid}, hei = {hei} tots = {tots}")
+        #print(f"Wid = {wid}, hei = {hei} tots = {tots}")
         lengot = 0
         img = b''
         while lengot < tots:
             recvd = conn.recv(tots-lengot)
             img = img + recvd
             lengot += len(recvd)
-        print(f"Img size/len = {len(img)}")
+        #print(f"Img size/len = {len(img)}")
         if img:
             # predict something
             prediction = bytes(get_img_prediction(img, wid, hei), 'utf-8')

@@ -13,10 +13,11 @@ import(
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
+	"strings"
 	"os/signal"
 	"syscall"
 	"strconv"
-
 
 	"github.com/gorilla/websocket"
 	//"github.com/pytorch/go-torch"
@@ -87,7 +88,7 @@ func predict_class(img [] byte, width uint64, height uint64) string{
 	}
 	dalen := binary.LittleEndian.Uint64(b)
 
-	log.Printf("Hello, going to make slice of %d\n", dalen)
+	//log.Printf("Hello, going to make slice of %d\n", dalen)
 	
 	ans := make([]byte, dalen)
 	_, err = tcp_conn.Read(ans)
@@ -158,8 +159,7 @@ func echo(w http.ResponseWriter, r *http.Request) {
 			width := binary.LittleEndian.Uint64(message[0:8])
 			height := binary.LittleEndian.Uint64(message[8:16])
 			bytes := binary.LittleEndian.Uint64(message[16:24])
-			log.Printf("recv image : width=%d, height=%d, bytes=%d",
-				width, height, bytes);
+			//log.Printf("recv image : width=%d, height=%d, bytes=%d", width, height, bytes);
 
 			img := message[24:(24+bytes)];
 			log.Printf("Going to predict %d\n", len(img))
@@ -208,12 +208,39 @@ func main() {
 	port := ln.Addr().(*net.TCPAddr).Port
 	fmt.Printf("Server for python started on port %d\n", port)
 
-	// 2. Launch the Python process with the port number as an argument
-	cmd := exec.Command("python", "main.py", strconv.Itoa(port))
+	exec.Command("echo", os.Getenv("PATH"))
+	
+
+	var python_path string
+	{
+		// For Unix-like systems (Linux/macOS), use "which"
+		// For Windows, use "where"
+		var cmd *exec.Cmd
+		if runtime.GOOS == "windows" {
+			cmd = exec.Command("where", "python")
+		} else {
+			cmd = exec.Command("which", "python")
+		}
+
+		pythonPathBytes, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Fatalf("Error finding Python executable: %v", err)
+		}
+
+		// Get the first line of the output, trim any whitespace
+		python_path = strings.TrimSpace(strings.Split(string(pythonPathBytes), "\n")[0])
+
+		if python_path == "" {
+			log.Fatal("Python executable not found.")
+		}
+	}
+
+	cmd := exec.Command(python_path, "main.py", strconv.Itoa(port))
+	//cmd = exec.Command("echo", "$(which go)")
 	// Pipe the output from the Python process to the Go program's stdout
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-
+	
 	err = cmd.Start()
 	if err != nil {
 		log.Fatal("Error starting Python process:", err)

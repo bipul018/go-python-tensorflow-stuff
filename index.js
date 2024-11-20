@@ -135,6 +135,7 @@ window.addEventListener("load", function(evt) {
     // Start webcam stream
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
 	.then((stream) => {
+	    video.controls = true;
 	    video.srcObject = stream;
 	    video.play();
 	    const streaming = [false];
