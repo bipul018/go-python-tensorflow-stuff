@@ -6,37 +6,12 @@ import sys
 import time
 
 import numpy
-import tensorflow as tflow
-import keras
+#import tensorflow as tflow
+#import keras
 import logpy
 
-TGT_IMG_SIZE = (300, 300)
-BATCH_SIZE = 64
-LOADER_METADATA = {'batch_size':64, 'interpolation':"bilinear", 'image_size':TGT_IMG_SIZE, 'label_mode':'binary'}
-
-# load model
-# model = keras.models.load_model("/ntfsd/prgming/python-test/rock-paper-scissor-with-validation-2.keras")
-model = keras.models.load_model("rock-paper-scissor-with-validation-2.keras")
-
-def preprocess(xval, yval):
-    xval = xval / 255.0
-    return xval, yval
-
-#train_ds = keras.utils.image_dataset_from_directory("/ntfsd/prgming/python-test/"+'rp-train', **LOADER_METADATA)
-
-#class_names = train_ds.class_names
-class_names = ['rock', 'paper']
-
-def resolve_name(pred):
-    pval = pred.item()
-    if pval < 0.5:
-        return class_names[0]
-    else:
-        return class_names[1]
-
-# pytorch stuff
-
 import stsae_gcn
+import try_mpipe
 
     
 def get_img_prediction(rgba_data, width, height):
@@ -47,19 +22,7 @@ def get_img_prediction(rgba_data, width, height):
 
     # Normalize the RGB values to the range [0, 1]
     # rgb_normalized = rgb_array.astype(numpy.float32) / 255.0
-
-    # Now you have an RGB image as a normalized float32 array
-    # You can pass this to TensorFlow
-    #input_tensor = tflow.convert_to_tensor(rgb_normalized)
-
-    # Check the shape and type of the tensor
-    #print(input_tensor.shape, input_tensor.dtype)
-
-    # Use TensorFlow's image resizing function
-    #resized_tensor = tflow.image.resize(input_tensor, [TGT_IMG_SIZE[1], TGT_IMG_SIZE[0]])
-    #print(resized_tensor.shape, resized_tensor.dtype)
-    #return resolve_name(model.predict(resized_tensor))
-    res, img =  stsae_gcn.run_on_image(rgb_array)
+    res, img =  try_mpipe.run_on_image(rgb_array)
     return res, img
 
 
