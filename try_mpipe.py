@@ -62,8 +62,8 @@ class FrameBuffer():
             maxval,predictions = torch.max(torch.softmax(outputs,1), 1)
             pose_name = stsae_gcn.subset_of_poses[predictions]
             self.last_pred = pose_name
-            self.last_prob = maxval.item()
-        return (self.last_pred, self.last_prob * 100)
+            self.last_prob = maxval.item() * 100
+        return (self.last_pred, self.last_prob)
     def get_pred_str(self):
         return f'{self.last_pred}({self.last_prob:.1f}%)'
 
@@ -80,31 +80,40 @@ VisionRunningMode = mpipe.tasks.vision.RunningMode
 
 options = PoseLandmarkerOptions(
     base_options=BaseOptions(model_asset_path='pose_landmarker_lite.task'),
-    running_mode=VisionRunningMode.IMAGE)
+    running_mode=VisionRunningMode.VIDEO)
 
 # STEP 2: Create an PoseLandmarker object.
 detector = PoseLandmarker.create_from_options(options)
 
 def unnormalize(pt, wid, hei):
-    x = pt[0] * wid
+    x = (1-pt[0]) * wid
     y = pt[1] * hei
     # x = (x + 1) * 0.5 * wid
     # y = (y + 1) * 0.5 * hei
     if (x >= 0) and (y >= 0) and (x < wid) and (y < hei):
         return (int(x) , int(y))
     return None
-
+# TODO:: Make this ts more accurate
+ts = 0
 def run_on_image(rgb_image):
+    global ts
     if len(rgb_image.shape) == 4:
         rgb_image = rgb_image[0]
     rgb_image = numpy.ascontiguousarray(rgb_image)
     bgr_image = mpipe.Image(image_format=mpipe.ImageFormat.SRGB, data=cv2.flip(rgb_image,1))
-    results = detector.detect(bgr_image)
+    results = detector.detect_for_video(bgr_image, ts)
+    ts += 100 # assumes ~ 10fps
     if results.pose_landmarks:
         pts = []
         for pt in results.pose_world_landmarks[0]:
             pts.append([pt.x, pt.y, pt.z])
         pts = torch.tensor(pts)
+
+        pred_name, pred_prob = sampler.update(pts)
+
+        pts = []
+        for pt in results.pose_landmarks[0]:
+            pts.append([pt.x, pt.y, pt.z])
 
         # loop over all the landmark indices pairs and draw lines
         for pair in mpipe.solutions.pose.POSE_CONNECTIONS:
@@ -114,7 +123,7 @@ def run_on_image(rgb_image):
                 cv2.line(rgb_image, pt1, pt2, (0, 0, 255), thickness=1)
 
             
-        pred_name, pred_prob = sampler.update(pts)
+
         rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2RGBA)
         # logpy.log(f"The result image is of type {type(rgb_image)} and data type of {rgb_image.dtype}")
         return f"{sampler.last_pred} : {sampler.last_prob:.2f}%", rgb_image

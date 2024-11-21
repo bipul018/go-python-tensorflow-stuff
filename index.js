@@ -26,7 +26,7 @@ const func = async (evt) => {
 
 
     // Setup video
-    const video = make_video_object('video-src', width=400);
+    const video = make_video_object('video-src', width=560);
     add_listener('switch-to-camera-button', 'click', ()=>video.switch_source('camera'));
     add_listener('choose-file-field', 'change', () => {
 	video.switch_source(get_elem('choose-file-field').files[0]);
