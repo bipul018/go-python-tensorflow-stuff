@@ -218,7 +218,11 @@ function create_websocket(address, options={
 	    if(self.ontext !== null) self.ontext(evt.data);
 	}
 	else{
-	    if(self.onbinary !== null) await self.onbinary(await evt.data.bytes());
+	    console.log('Type of evt.data is ', typeof(evt.data));
+	    console.log('evt.data is ', evt.data);
+	    console.log('evt.data.bytes is ', evt.data.bytes);
+	    if(self.onbinary !== null)
+		await self.onbinary(new Uint8Array(await evt.data.arrayBuffer()));
 	}
     };
     self.sendtext = (string) => {
