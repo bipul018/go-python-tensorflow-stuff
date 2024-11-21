@@ -178,13 +178,17 @@ func echo(w http.ResponseWriter, r *http.Request) {
 
 func home_css(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/css")
-	jsTemplate.Execute(w, "")
+	cssTemplate.Execute(w, "")
 }
 
 
-func home_js(w http.ResponseWriter, r *http.Request) {
+func main_js(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/javascript")
-	jsTemplate.Execute(w, "ws://"+r.Host+"/echo")
+	jsmainTemplate.Execute(w, "ws://"+r.Host+"/echo")
+}
+func helper_js(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/javascript")
+	jshelpTemplate.Execute(w, "")
 }
 
 func home_html(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +266,8 @@ func main() {
 	
 
 	http.HandleFunc("/echo", echo)
-	http.HandleFunc("/index.js", home_js)
+	http.HandleFunc("/index.js", main_js)
+	http.HandleFunc("/helper.js", helper_js)
 	http.HandleFunc("/styles.css", home_css)
 	http.HandleFunc("/", home_html)
 	my_logf("Starting server...")
@@ -306,5 +311,6 @@ func main() {
 
 var htmlTemplate = template.Must(template.ParseFiles("index.html"))
 //var jsTemplate = template.Must(template.ParseFiles("index.js"))
-var jsTemplate = txt_template.Must(txt_template.ParseFiles("index.js"))
+var jsmainTemplate = txt_template.Must(txt_template.ParseFiles("index.js"))
+var jshelpTemplate = txt_template.Must(txt_template.ParseFiles("helper.js"))
 var cssTemplate = txt_template.Must(txt_template.ParseFiles("styles.css"))
